@@ -25,27 +25,56 @@ Partial Public Class MainWindow
         If xDWAV.ShowDialog = Windows.Forms.DialogResult.Cancel Then Exit Sub
         InitPath = ExcludeFileName(xDWAV.FileName)
 
-        Dim src = CSCore.Codecs.CodecFactory.Instance.GetCodec(xDWAV.FileName)
+        Using src = CSCore.Codecs.CodecFactory.Instance.GetCodec(xDWAV.FileName).ToStereo()
+            Dim sampleSource = src.ToSampleSource()
+            Dim bytesPerSample As Integer = Math.Max(1, src.WaveFormat.BitsPerSample \ 8)
+            Dim frameCountLong As Long = (src.Length \ bytesPerSample) \ src.WaveFormat.Channels
 
-        src.ToStereo()
-        Dim samples(src.Length) As Single
-        src.ToSampleSource().Read(samples, 0, src.Length)
-
-        Dim flen = (src.Length - 1) / src.WaveFormat.Channels
-
-        ' Copy interleaved data
-        ReDim wWavL(flen + 1)
-        ReDim wWavR(flen + 1)
-        For i As Integer = 0 To flen
-            If 2 * i < src.Length Then
-                wWavL(i) = samples(2 * i)
+            If frameCountLong <= 0 Then
+                Erase wWavL
+                Erase wWavR
+                Throw New InvalidDataException("The selected audio file does not contain readable samples.")
             End If
-            If 2 * i + 1 < src.Length Then
-                wWavR(i) = samples(2 * i + 1)
-            End If
-        Next
 
-        wSampleRate = src.WaveFormat.SampleRate
+            If frameCountLong > Integer.MaxValue - 1 Then
+                Erase wWavL
+                Erase wWavR
+                Throw New OutOfMemoryException("The selected audio file is too large to draw as a waveform.")
+            End If
+
+            ReDim wWavL(CInt(frameCountLong - 1))
+            ReDim wWavR(CInt(frameCountLong - 1))
+
+            Dim buffer(Math.Max(src.WaveFormat.Channels * 4096, src.WaveFormat.Channels) - 1) As Single
+            Dim frameIndex As Integer = 0
+            Dim samplesRead As Integer
+
+            Do
+                samplesRead = sampleSource.Read(buffer, 0, buffer.Length)
+                If samplesRead <= 0 Then Exit Do
+
+                Dim sampleIndex As Integer = 0
+                While sampleIndex + src.WaveFormat.Channels - 1 < samplesRead AndAlso frameIndex < wWavL.Length
+                    wWavL(frameIndex) = buffer(sampleIndex)
+                    wWavR(frameIndex) = buffer(sampleIndex + 1)
+                    sampleIndex += src.WaveFormat.Channels
+                    frameIndex += 1
+                End While
+            Loop
+
+            If frameIndex = 0 Then
+                Erase wWavL
+                Erase wWavR
+                Throw New InvalidDataException("The selected audio file does not contain readable samples.")
+            End If
+
+            If frameIndex < wWavL.Length Then
+                ReDim Preserve wWavL(frameIndex - 1)
+                ReDim Preserve wWavR(frameIndex - 1)
+            End If
+
+            wSampleRate = src.WaveFormat.SampleRate
+        End Using
         RefreshPanelAll()
 
         TWFileName.Text = xDWAV.FileName

@@ -776,6 +776,8 @@ Public Class MainWindow
     End Function
 
     Private Sub Form1_FormClosed(ByVal sender As Object, ByVal e As System.Windows.Forms.FormClosedEventArgs) Handles Me.FormClosed
+        ClearPanelBuffers()
+
         If pTempFileNames IsNot Nothing Then
             For Each xStr As String In pTempFileNames
                 IO.File.Delete(xStr)

@@ -1546,15 +1546,20 @@ Partial Public Class MainWindow
                                     vo.kHeight + 3,
                                     Notes(foundNoteIndex).Length * gxHeight + vo.kHeight + 3)
 
-        Dim e1 As BufferedGraphics = BufferedGraphicsManager.Current.Allocate(spMain(iI).CreateGraphics, New Rectangle(xDispX, xDispY, xDispW, xDispH))
-        e1.Graphics.FillRectangle(vo.Bg, New Rectangle(xDispX, xDispY, xDispW, xDispH))
+        Dim drawRect As Rectangle = Rectangle.Intersect(spMain(iI).DisplayRectangle, New Rectangle(xDispX, xDispY, xDispW, xDispH))
+        If drawRect.Width <= 0 OrElse drawRect.Height <= 0 Then Return
 
-        If NTInput Then DrawNoteNT(Notes(foundNoteIndex), e1, xHS, xVS, xHeight) Else DrawNote(Notes(foundNoteIndex), e1, xHS, xVS, xHeight)
+        Using targetGraphics = spMain(iI).CreateGraphics()
+            Dim e1 As BufferedGraphics = BufferedGraphicsManager.Current.Allocate(targetGraphics, drawRect)
+            e1.Graphics.FillRectangle(vo.Bg, drawRect)
 
-        e1.Graphics.DrawRectangle(IIf(bAdjustLength, vo.kMouseOverE, vo.kMouseOver), xDispX, xDispY, xDispW - 1, xDispH - 1)
+            If NTInput Then DrawNoteNT(Notes(foundNoteIndex), e1, xHS, xVS, xHeight) Else DrawNote(Notes(foundNoteIndex), e1, xHS, xVS, xHeight)
 
-        e1.Render(spMain(iI).CreateGraphics)
-        e1.Dispose()
+            e1.Graphics.DrawRectangle(IIf(bAdjustLength, vo.kMouseOverE, vo.kMouseOver), xDispX, xDispY, xDispW - 1, xDispH - 1)
+
+            e1.Render(targetGraphics)
+            e1.Dispose()
+        End Using
     End Sub
 
     Private Function GetColumnAtX(x As Integer, xHS As Integer) As Integer

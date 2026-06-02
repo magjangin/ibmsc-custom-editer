@@ -11,7 +11,7 @@ Partial Public Class MainWindow
 
     Dim bufferlist As Dictionary(Of Integer, BufferedGraphics) = New Dictionary(Of Integer, BufferedGraphics)
     Dim rectList As Dictionary(Of Integer, Rectangle) = New Dictionary(Of Integer, Rectangle)
-    Private Function GetBuffer(xIndex As Integer, DisplayRect As Rectangle)
+    Private Function GetBuffer(xIndex As Integer, DisplayRect As Rectangle) As BufferedGraphics
         If bufferlist.ContainsKey(xIndex) AndAlso rectList.Item(xIndex) = DisplayRect Then
             Return bufferlist.Item(xIndex)
         Else
@@ -21,12 +21,24 @@ Partial Public Class MainWindow
                 rectList.Remove(xIndex)
             End If
 
-            Dim gfx = BufferedGraphicsManager.Current.Allocate(spMain(xIndex).CreateGraphics, DisplayRect)
+            Dim gfx As BufferedGraphics
+            Using targetGraphics = spMain(xIndex).CreateGraphics()
+                gfx = BufferedGraphicsManager.Current.Allocate(targetGraphics, DisplayRect)
+            End Using
             bufferlist.Add(xIndex, gfx)
             rectList.Add(xIndex, DisplayRect)
             Return gfx
         End If
     End Function
+
+    Private Sub ClearPanelBuffers()
+        For Each bufferedGraphic In bufferlist.Values
+            bufferedGraphic.Dispose()
+        Next
+
+        bufferlist.Clear()
+        rectList.Clear()
+    End Sub
 
     Private Sub RefreshPanel(ByVal xIndex As Integer, ByVal DisplayRect As Rectangle)
         If Me.WindowState = FormWindowState.Minimized Then Return
@@ -88,7 +100,9 @@ Partial Public Class MainWindow
         'Drag/Drop
         DrawDragAndDrop(xIndex, e1)
 
-        e1.Render(spMain(xIndex).CreateGraphics)
+        Using targetGraphics = spMain(xIndex).CreateGraphics()
+            e1.Render(targetGraphics)
+        End Using
         'e1.Dispose()
     End Sub
 
