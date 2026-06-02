@@ -252,7 +252,7 @@ AddExpansion:       xExpansion &= sLine & vbCrLf
     '"81", "82", "83", "84", "85", "86", "88", "89",
 
 
-    Private Function SaveBMS() As String
+    Private Function SaveBMS(Optional ByVal wavKeyLength As Integer = 3) As String
         CalculateGreatestVPosition()
         SortByVPositionInsertion()
         UpdatePairing()
@@ -315,8 +315,8 @@ AddExpansion:       xExpansion &= sLine & vbCrLf
             Next
 
             ReDim xprevNotes(-1)
-            xStrMeasure(MeasureIndex) &= GenerateBackgroundTracks(MeasureIndex, hasOverlapping, NotesInMeasure, GreatestColumn, xprevNotes)
-            xStrMeasure(MeasureIndex) &= GenerateKeyTracks(MeasureIndex, hasOverlapping, NotesInMeasure, xprevNotes)
+            xStrMeasure(MeasureIndex) &= GenerateBackgroundTracks(MeasureIndex, hasOverlapping, NotesInMeasure, GreatestColumn, xprevNotes, wavKeyLength)
+            xStrMeasure(MeasureIndex) &= GenerateKeyTracks(MeasureIndex, hasOverlapping, NotesInMeasure, xprevNotes, wavKeyLength)
         Next
 
         ' Warn about 255 limit if neccesary.
@@ -347,7 +347,7 @@ AddExpansion:       xExpansion &= sLine & vbCrLf
 
         ' Generate headers now, since we have the unique BPM/STOP/etc declarations.
         Dim xStrHeader As String = GenerateHeaderMeta()
-        xStrHeader &= GenerateHeaderIndexedData()
+        xStrHeader &= GenerateHeaderIndexedData(wavKeyLength)
 
         Dim xStrAll As String = xStrHeader & vbCrLf & xStrExp & vbCrLf & xStrMain
         Return xStrAll
@@ -380,11 +380,11 @@ AddExpansion:       xExpansion &= sLine & vbCrLf
         Return xStrHeader
     End Function
 
-    Private Function GenerateHeaderIndexedData() As String
+    Private Function GenerateHeaderIndexedData(Optional ByVal wavKeyLength As Integer = 3) As String
         Dim xStrHeader As String = ""
 
         For i = 1 To UBound(hWAV)
-            If Not hWAV(i) = "" Then xStrHeader &= "#WAV" & C10to36(i, 3) &
+            If Not hWAV(i) = "" Then xStrHeader &= "#WAV" & C10to36(i, wavKeyLength) &
                                                     " " & hWAV(i) & vbCrLf
         Next
         For i = 1 To UBound(hBPM)
@@ -428,7 +428,7 @@ AddExpansion:       xExpansion &= sLine & vbCrLf
         If UpperLimit < LowerLimit Then UpperLimit = NoteCount + 1
     End Sub
 
-    Private Function GenerateKeyTracks(MeasureIndex As Integer, ByRef hasOverlapping As Boolean, NotesInMeasure() As Note, ByRef xprevNotes() As Note) As String
+    Private Function GenerateKeyTracks(MeasureIndex As Integer, ByRef hasOverlapping As Boolean, NotesInMeasure() As Note, ByRef xprevNotes() As Note, Optional ByVal wavKeyLength As Integer = 3) As String
         Dim CurrentBMSChannel As String
         Dim Ret As String = ""
 
@@ -485,14 +485,14 @@ AddExpansion:       xExpansion &= sLine & vbCrLf
                         End If
                         NoteStrings(UBound(NoteStrings)) = C10to36(ScrollIndex)
                     Else
-                        NoteStrings(UBound(NoteStrings)) = C10to36(currentNote.Value \ 10000, 3)
+                        NoteStrings(UBound(NoteStrings)) = C10to36(currentNote.Value \ 10000, wavKeyLength)
                     End If
                 End If
             Next
 
             If relativeMeasurePos.Length = 0 Then Continue For
 
-            Dim xKeyLength As Integer = IIf(CurrentBMSChannel = "03" OrElse CurrentBMSChannel = "08" OrElse CurrentBMSChannel = "09" OrElse CurrentBMSChannel = "SC", 2, 3)
+            Dim xKeyLength As Integer = IIf(CurrentBMSChannel = "03" OrElse CurrentBMSChannel = "08" OrElse CurrentBMSChannel = "09" OrElse CurrentBMSChannel = "SC", 2, wavKeyLength)
             Dim xKeyZero As String = New String("0"c, xKeyLength)
 
             Dim xGCD As Double = MeasureLength(MeasureIndex)
@@ -537,7 +537,7 @@ AddExpansion:       xExpansion &= sLine & vbCrLf
         Return Ret
     End Function
 
-    Private Function GenerateBackgroundTracks(MeasureIndex As Integer, ByRef hasOverlapping As Boolean, NotesInMeasure() As Note, GreatestColumn As Integer, ByRef xprevNotes() As Note) As String
+    Private Function GenerateBackgroundTracks(MeasureIndex As Integer, ByRef hasOverlapping As Boolean, NotesInMeasure() As Note, GreatestColumn As Integer, ByRef xprevNotes() As Note, Optional ByVal wavKeyLength As Integer = 3) As String
         Dim relativeNotePositions() As Double 'Ks in the same column
         Dim noteStrings() As String    'Ks in the same column
         Dim Ret As String = ""
@@ -555,7 +555,7 @@ AddExpansion:       xExpansion &= sLine & vbCrLf
                     relativeNotePositions(UBound(relativeNotePositions)) = NotesInMeasure(I).VPosition - MeasureBottom(MeasureAtDisplacement(NotesInMeasure(I).VPosition))
                     If relativeNotePositions(UBound(relativeNotePositions)) < 0 Then relativeNotePositions(UBound(relativeNotePositions)) = 0
 
-                    noteStrings(UBound(noteStrings)) = C10to36(NotesInMeasure(I).Value \ 10000, 3)
+                    noteStrings(UBound(noteStrings)) = C10to36(NotesInMeasure(I).Value \ 10000, wavKeyLength)
                 End If
             Next
 
@@ -566,7 +566,7 @@ AddExpansion:       xExpansion &= sLine & vbCrLf
 
             Dim xStrKey(CInt(MeasureLength(MeasureIndex) / xGCD) - 1) As String
             For i = 0 To UBound(xStrKey)           'assign zero to all keys
-                xStrKey(i) = "000"
+                xStrKey(i) = New String("0"c, wavKeyLength)
             Next
 
             For i = 0 To UBound(relativeNotePositions)        'assign K texts
@@ -582,7 +582,7 @@ AddExpansion:       xExpansion &= sLine & vbCrLf
 
                     Continue For
                 End If
-                If xStrKey(CInt(relativeNotePositions(i) / xGCD)) <> "000" Then hasOverlapping = True
+                If xStrKey(CInt(relativeNotePositions(i) / xGCD)) <> New String("0"c, wavKeyLength) Then hasOverlapping = True
                 xStrKey(CInt(relativeNotePositions(i) / xGCD)) = noteStrings(i)
             Next
 

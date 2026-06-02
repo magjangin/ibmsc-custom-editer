@@ -473,6 +473,26 @@ Public Class MainWindow
         Return xS3
     End Function
 
+    Private Function CurrentTempBmsPath() As String
+        Return IIf(Not PathIsValid(FileName),
+                  IIf(InitPath = "", My.Application.Info.DirectoryPath, InitPath),
+                  ExcludeFileName(FileName)) & "\___TempBMS.bms"
+    End Function
+
+    Private Function PlayerNeedsStandardBms(ByVal playerPath As String) As Boolean
+        Return Path.GetFileName(playerPath).Equals("mBMplay.exe", StringComparison.OrdinalIgnoreCase)
+    End Function
+
+    Private Function SavePreviewBMS(ByVal playerPath As String) As String
+        Return SaveBMS(IIf(PlayerNeedsStandardBms(playerPath), 2, 3))
+    End Function
+
+    Private Sub StartPlayer(ByVal playerPath As String, ByVal playerArguments As String)
+        Dim xStartInfo As New ProcessStartInfo(playerPath, playerArguments)
+        xStartInfo.WorkingDirectory = ExcludeFileName(CurrentTempBmsPath())
+        System.Diagnostics.Process.Start(xStartInfo)
+    End Sub
+
     Private Sub SetFileName(ByVal xFileName As String)
         FileName = xFileName.Trim
         InitPath = ExcludeFileName(FileName)
@@ -2012,14 +2032,12 @@ EndSearch:
             Exit Sub
         End If
 
-        Dim xStrAll As String = SaveBMS()
-        Dim xFileName As String = IIf(Not PathIsValid(FileName),
-                                      IIf(InitPath = "", My.Application.Info.DirectoryPath, InitPath),
-                                      ExcludeFileName(FileName)) & "\___TempBMS.bms"
+        Dim xStrAll As String = SavePreviewBMS(PrevCodeToReal(xArg.Path))
+        Dim xFileName As String = CurrentTempBmsPath()
         My.Computer.FileSystem.WriteAllText(xFileName, xStrAll, False, TextEncoding)
 
         AddTempFileList(xFileName)
-        System.Diagnostics.Process.Start(PrevCodeToReal(xArg.Path), PrevCodeToReal(xArg.aHere))
+        StartPlayer(PrevCodeToReal(xArg.Path), PrevCodeToReal(xArg.aHere))
     End Sub
 
     Private Sub TBPlayB_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles TBPlayB.Click, mnPlayB.Click
@@ -2035,15 +2053,13 @@ EndSearch:
             Exit Sub
         End If
 
-        Dim xStrAll As String = SaveBMS()
-        Dim xFileName As String = IIf(Not PathIsValid(FileName),
-                                      IIf(InitPath = "", My.Application.Info.DirectoryPath, InitPath),
-                                      ExcludeFileName(FileName)) & "\___TempBMS.bms"
+        Dim xStrAll As String = SavePreviewBMS(PrevCodeToReal(xArg.Path))
+        Dim xFileName As String = CurrentTempBmsPath()
         My.Computer.FileSystem.WriteAllText(xFileName, xStrAll, False, TextEncoding)
 
         AddTempFileList(xFileName)
 
-        System.Diagnostics.Process.Start(PrevCodeToReal(xArg.Path), PrevCodeToReal(xArg.aBegin))
+        StartPlayer(PrevCodeToReal(xArg.Path), PrevCodeToReal(xArg.aBegin))
     End Sub
 
     Private Sub TBStop_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles TBStop.Click, mnStop.Click
@@ -2059,7 +2075,7 @@ EndSearch:
             Exit Sub
         End If
 
-        System.Diagnostics.Process.Start(PrevCodeToReal(xArg.Path), PrevCodeToReal(xArg.aStop))
+        StartPlayer(PrevCodeToReal(xArg.Path), PrevCodeToReal(xArg.aStop))
     End Sub
 
     Private Sub AddTempFileList(ByVal s As String)
